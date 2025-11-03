@@ -21,10 +21,9 @@ from chronoedit_diffusers.transformer_chronoedit import ChronoEditTransformer3DM
 from prompt_enhancer import enhance_prompt, load_model
 
 MODEL_ID = "nvidia/ChronoEdit-14B-Diffusers"
-LORA_FILENAME = "lora/chronoedit_distill_lora.safetensors"
 PROMPT_ENHANCER_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
 MAX_AREA = 720 * 1280
-NUM_FRAMES = 5
+NUM_FRAMES = 29
 CACHE_ROOT = Path(__file__).resolve().parent / "checkpoints"
 MODEL_CACHE_DIR = CACHE_ROOT / "ChronoEdit-14B-Diffusers"
 MODEL_URL = "https://weights.replicate.delivery/default/nvidia/ChronoEdit-14B-Diffusers/model.tar"
@@ -93,17 +92,9 @@ class Predictor(BasePredictor):
             vae=vae,
         )
 
-        lora_path = model_path / LORA_FILENAME
-        if not lora_path.exists():
-            raise FileNotFoundError(
-                f"Expected LoRA weights at {lora_path}, but the file was not found."
-            )
-        self.pipe.load_lora_weights(lora_path)
-        self.pipe.fuse_lora(lora_scale=1.0)
-
         self.pipe.scheduler = UniPCMultistepScheduler.from_config(
             self.pipe.scheduler.config,
-            flow_shift=2.0,
+            flow_shift=5.0,
         )
         self.pipe.to(self.device, dtype=dtype)
         self.pipe.set_progress_bar_config(disable=True)
@@ -125,7 +116,7 @@ class Predictor(BasePredictor):
         ),
         num_steps: int = Input(
             description="Number of diffusion steps (8 recommended for distillation)",
-            default=8,
+            default=50,
             ge=4,
             le=50,
         ),
@@ -156,9 +147,9 @@ class Predictor(BasePredictor):
                 width=width,
                 num_frames=NUM_FRAMES,
                 num_inference_steps=num_steps,
-                guidance_scale=1.0,
-                enable_temporal_reasoning=False,
-                num_temporal_reasoning_steps=0,
+                guidance_scale=5.0,
+                enable_temporal_reasoning=True,
+                num_temporal_reasoning_steps=50,
             ).frames[0]
 
             final_frame = output[-1]
